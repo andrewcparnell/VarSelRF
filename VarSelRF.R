@@ -182,11 +182,12 @@ find_max_gain = function(XX,
 
   # Now loop through the columns finding the best split
   for(j in 1:ncol(XX)) {
-    curr_X = XX[,j]
+    curr_X = XX[tree$node_indices == node_to_grow,j]
     # Remember the only X values you can split on are those in that terminal node
-    #unique_X = sort(unique(curr_X[tree$node_indices == node_to_grow]))
-    unique_X = sort(unique(quantile(curr_X[tree$node_indices == node_to_grow],
+    #unique_X = sort(unique(curr_X))
+    unique_X = sort(unique(quantile(curr_X,
                         probs = seq(0, 1, length = 22)[-c(1,12)])))
+    #unique_X = sort(sample(sort(curr_X)[-1], size = 10))
 
     # If there's only one X value stop right now
     if(length(unique_X) == 1) {

@@ -144,7 +144,7 @@ find_max_gain = function(XX,
                          node_to_grow) {
 
   # First get the predictions from the current tree
-  tree_pred = get_predictions(tree, XX, yy)
+  tree_pred = get_predictions(tree, XX)
 
   # Create somewhere to store the gains for each x value as well
   gain_store = matrix(NA, ncol = 3, nrow = ncol(XX))
@@ -167,7 +167,7 @@ find_max_gain = function(XX,
         # Try growing a tree with this split var/val combination
         try_tree = grow_tree(XX, yy, tree, node_to_grow, curr_split_var, curr_split_val)
         # Get the predictions from this new tree
-        try_tree_pred = get_predictions(try_tree, XX, yy)
+        try_tree_pred = get_predictions(try_tree, XX)
         # Evaluate the gain
         curr_gain = gain_fun(tree_pred, try_tree_pred, yy)
         
@@ -283,6 +283,9 @@ grow_tree = function(XX, yy, curr_tree, node_to_split, split_variable, split_val
   # Now call the fill function on this tree
   new_tree = fill_tree_details(new_tree, XX)
   
+  # Finally fill in the mu values for each terminal node
+  new_tree = fill_mu(new_tree, yy)
+
   # Fill in the predicted means
   # new_tree_matrix[i,'mu'] = mean(y[node_indices == i])
   # if(any(is.nan(new_tree_matrix[,'mu']))) browser()
@@ -293,6 +296,14 @@ grow_tree = function(XX, yy, curr_tree, node_to_split, split_variable, split_val
   
 } # End of grow_tree function
 
+# Fill in the terminal node values
+fill_mu = function(tree, y) {
+  which_terminal = which(tree$tree_matrix[,'terminal'] == 1)
+  for(i in which_terminal) {
+    tree$tree_matrix[i,'mu'] = mean(y[tree$node_indices == i])
+  }
+  return(tree)
+}
 
 predict_VarSelRF = function(VarSelRF, newX) {
   # Create predictions based on a new feature matrix
@@ -310,7 +321,7 @@ predict_VarSelRF = function(VarSelRF, newX) {
     y_hat_tree[i,] = get_predictions(curr_tree, 
                                      newX)
   }
-  y_hat_mat = apply(y_hat_tree, 1, 'mean')
+  y_hat_mat = apply(y_hat_tree, 2, 'mean')
 
   return(y_hat_mat)
   

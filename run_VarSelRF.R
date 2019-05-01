@@ -14,7 +14,7 @@ gain_rmse = function(new_pred, old_pred, y) sqrt(mean((y - old_pred)^2)) - sqrt(
 
 # Create some data
 set.seed(123)
-data_1 = sim_friedman(500)
+data_1 = sim_friedman(200, p = 0)
 
 # Run it through VarSelRF
 rf_1 = VarSelRF(X = data_1$X,

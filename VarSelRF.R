@@ -47,7 +47,7 @@ VarSelRF = function(X, # feature matrix
                                "grow_tree",
                                "fill_tree_details",
                                "fill_mu",
-                               "create_stump")) %dopar%
+                               "create_stump")) %do%
     {
       result = grow_rf_tree(X[obs_sel[,i], 
                                    feature_sel[,i]],
@@ -173,12 +173,12 @@ find_max_gain = function(XX,
   gain_store = matrix(NA, ncol = 3, nrow = ncol(XX))
   colnames(gain_store) = c('split_var', 'split_val', 'gain_val')
 
-  # Now loop through each of the columns and each of the unique values in each column to find best split
+  # Now would like a function which takes a column and find the 
+  # difference in the gain from splitting on that column
   for(j in 1:ncol(XX)) {
     curr_X = XX[,j]
     # Remember the only X values you can split on are those in that terminal node
     #unique_X = sort(unique(curr_X[tree$node_indices == node_to_grow]))
-    browser()
     unique_X = quantile(curr_X[tree$node_indices == node_to_grow],
                         probs = seq(0, 1, length = 12)[-c(1,12)])
 

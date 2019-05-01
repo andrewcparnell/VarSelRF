@@ -5,7 +5,7 @@ VarSelRF = function(X, # feature matrix
                     y, # response variable (vector),
                     gain_fun, # Gain function
                     n_trees = 50, # Number of trees
-                    node_min_size = 10, # Minimum size of terminal node to grow
+                    node_min_size = 0.05*length(y), # Minimum size of terminal node to grow
                     choose_var = floor(sqrt(ncol(X))) # Number of features to select for each split
 ) {
   
@@ -32,13 +32,40 @@ VarSelRF = function(X, # feature matrix
   # Set 2 call the function to grow the trees based on the boostrapped data sets 
   # This loop should be parallelised in future
   # Also should put a progress bar in here
-  for(i in 1:n_trees) {
-    print(i)
-    tree_output[[i]] = grow_rf_tree(X[obs_sel[,i], feature_sel[,i]], 
-                                    y[obs_sel[,i]],
-                                    gain_fun = gain_fun,
-                                    node_min_size = node_min_size)
-  }
+  
+  cl = makeCluster(parallel::detectCores())
+  registerDoSNOW(cl)
+  pb = txtProgressBar(max = n_trees, style = 3)
+  progress = function(n) setTxtProgressBar(pb, n)
+  opts = list(progress = progress)
+  
+  tree_output = foreach(i = 1:n_trees, 
+                  .options.snow = opts,
+                   .export = c("grow_rf_tree",
+                               "find_max_gain",
+                               "get_predictions",
+                               "grow_tree",
+                               "fill_tree_details",
+                               "fill_mu",
+                               "create_stump")) %dopar%
+    {
+      result = grow_rf_tree(X[obs_sel[,i], 
+                                   feature_sel[,i]],
+                                 y[obs_sel[,i]],
+                                 gain_fun = gain_fun,
+                                 node_min_size = node_min_size)
+      return(result)
+      }
+  close(pb)
+  stopCluster(cl) 
+
+  # for(i in 1:n_trees) {
+  #   print(i)
+  #   tree_output[[i]] = grow_rf_tree(X[obs_sel[,i], feature_sel[,i]],
+  #                                   y[obs_sel[,i]],
+  #                                   gain_fun = gain_fun,
+  #                                   node_min_size = node_min_size)
+  # }
   
   return(list(trees = tree_output,
               y = y,
@@ -74,10 +101,6 @@ grow_rf_tree = function(XX, # Bootstrapped features
       best_split = find_max_gain(XX, yy, gain_fun, tree, which_can_grow[1])
       
       # Now split the tree based on that value
-      #if(count == 20) browser()
-      # print(tree)
-      # browser()
-      #print(count)
       tree = grow_tree(XX, yy, tree, 
                        node_to_split = which_can_grow[1],
                        split_variable = best_split[1],
@@ -154,7 +177,10 @@ find_max_gain = function(XX,
   for(j in 1:ncol(XX)) {
     curr_X = XX[,j]
     # Remember the only X values you can split on are those in that terminal node
-    unique_X = sort(unique(curr_X[tree$node_indices == node_to_grow]))
+    #unique_X = sort(unique(curr_X[tree$node_indices == node_to_grow]))
+    browser()
+    unique_X = quantile(curr_X[tree$node_indices == node_to_grow],
+                        probs = seq(0, 1, length = 12)[-c(1,12)])
 
     # If there's only one X value stop right now
     if(length(unique_X) == 1) {

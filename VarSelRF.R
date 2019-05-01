@@ -5,7 +5,7 @@ VarSelRF = function(X, # feature matrix
                     y, # response variable (vector),
                     gain_fun, # Gain function
                     n_trees = 50, # Number of trees
-                    node_min_size = 0.05*length(y), # Minimum size of terminal node to grow
+                    node_min_size = max(10, 0.05*length(y)), # Minimum size of terminal node to grow
                     choose_var = floor(sqrt(ncol(X))) # Number of features to select for each split
 ) {
   
@@ -47,7 +47,7 @@ VarSelRF = function(X, # feature matrix
                                "grow_tree",
                                "fill_tree_details",
                                "fill_mu",
-                               "create_stump")) %do%
+                               "create_stump")) %dopar%
     {
       result = grow_rf_tree(X[obs_sel[,i], 
                                    feature_sel[,i]],
@@ -67,6 +67,13 @@ VarSelRF = function(X, # feature matrix
   #                                   node_min_size = node_min_size)
   # }
   
+  # Now go through for each tree and correct the chosen variables
+  for(i in 1:n_trees) {
+    curr_features = feature_sel[,i]
+    tree_output[[i]]$tree_matrix[,'split_variable'] = 
+      curr_features[tree_output[[i]]$tree_matrix[,'split_variable']]
+  }
+  
   return(list(trees = tree_output,
               y = y,
               X = X,
@@ -81,7 +88,7 @@ grow_rf_tree = function(XX, # Bootstrapped features
                         yy, # Bootstrapped response
                         gain_fun,
                         node_min_size) {
-  
+
   # Start by creating a stump
   tree = create_stump(XX, yy)
   
@@ -173,14 +180,13 @@ find_max_gain = function(XX,
   gain_store = matrix(NA, ncol = 3, nrow = ncol(XX))
   colnames(gain_store) = c('split_var', 'split_val', 'gain_val')
 
-  # Now would like a function which takes a column and find the 
-  # difference in the gain from splitting on that column
+  # Now loop through the columns finding the best split
   for(j in 1:ncol(XX)) {
     curr_X = XX[,j]
     # Remember the only X values you can split on are those in that terminal node
     #unique_X = sort(unique(curr_X[tree$node_indices == node_to_grow]))
-    unique_X = quantile(curr_X[tree$node_indices == node_to_grow],
-                        probs = seq(0, 1, length = 12)[-c(1,12)])
+    unique_X = sort(unique(quantile(curr_X[tree$node_indices == node_to_grow],
+                        probs = seq(0, 1, length = 22)[-c(1,12)])))
 
     # If there's only one X value stop right now
     if(length(unique_X) == 1) {
@@ -195,7 +201,7 @@ find_max_gain = function(XX,
         # Get the predictions from this new tree
         try_tree_pred = get_predictions(try_tree, XX)
         # Evaluate the gain
-        curr_gain = gain_fun(tree_pred, try_tree_pred, yy)
+        curr_gain = gain_fun(try_tree_pred, tree_pred, yy)
         
         # Fill in the gain_store if it's an improvement
         if(i > 2) {
@@ -208,6 +214,7 @@ find_max_gain = function(XX,
   } # End of loop through features
 
   # Find the best gain and return that row of it
+  #if(max(gain_store) < 0) browser()
   return(gain_store[which.max(gain_store[,3]),])
   
 } # End of function
@@ -312,11 +319,6 @@ grow_tree = function(XX, yy, curr_tree, node_to_split, split_variable, split_val
   # Finally fill in the mu values for each terminal node
   new_tree = fill_mu(new_tree, yy)
 
-  # Fill in the predicted means
-  # new_tree_matrix[i,'mu'] = mean(y[node_indices == i])
-  # if(any(is.nan(new_tree_matrix[,'mu']))) browser()
-  
-  
   # Return new_tree
   return(new_tree)
   

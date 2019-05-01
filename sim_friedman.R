@@ -2,7 +2,7 @@
 # Simulate some data according to the Friedman example from the MARS paper
 sim_friedman = function(n, p = 0, res_sd = 0.5, pars = c(10, 20, 10, 5)) {
   # y = 10sin(πx1x2)+20(x3−0.5)2+10x4+5x5+ε
-  X = matrix(NA, nrow = n, ncol = 5 + p)
+  X = round(matrix(NA, nrow = n, ncol = 5 + p),2)
   for(i in 1:ncol(X)) X[,i] = rnorm(n, 0, 1)
   y = mean = rep(NA, n)
   err = rnorm(n, sd = res_sd)

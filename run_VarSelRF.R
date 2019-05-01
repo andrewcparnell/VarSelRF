@@ -8,13 +8,13 @@ source('VarSelRF.R')
 library(foreach)
 library(doSNOW)
 
-
 # Set up a gain function - first one is just reduction in rmse
+rmse = function(pred, y) sqrt(mean((y - pred)^2))
 gain_rmse = function(new_pred, old_pred, y) sqrt(mean((y - old_pred)^2)) - sqrt(mean((y - new_pred)^2))
 
 # Create some data
 set.seed(123)
-data_1 = sim_friedman(200, p = 0)
+data_1 = sim_friedman(500, p = 10)
 
 # Run it through VarSelRF
 rf_1 = VarSelRF(X = data_1$X,

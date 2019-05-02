@@ -6,7 +6,7 @@ VarSelRF = function(X, # feature matrix
                     gain_fun, # Gain function
                     n_trees = 50, # Number of trees
                     node_min_size = max(10, 0.05*length(y)), # Minimum size of terminal node to grow
-                    choose_var = floor(sqrt(ncol(X))) # Number of features to select for each split
+                    choose_var = max(floor(ncol(X)/3), 1) # Number of features to select for each split
 ) {
   
   # Algorithm runs as follows
@@ -33,39 +33,43 @@ VarSelRF = function(X, # feature matrix
   # This loop should be parallelised in future
   # Also should put a progress bar in here
   
-  cl = makeCluster(parallel::detectCores())
-  registerDoSNOW(cl)
-  pb = txtProgressBar(max = n_trees, style = 3)
-  progress = function(n) setTxtProgressBar(pb, n)
-  opts = list(progress = progress)
-  
-  tree_output = foreach(i = 1:n_trees, 
-                  .options.snow = opts,
-                   .export = c("grow_rf_tree",
-                               "find_max_gain",
-                               "get_predictions",
-                               "grow_tree",
-                               "fill_tree_details",
-                               "fill_mu",
-                               "create_stump")) %dopar%
-    {
-      result = grow_rf_tree(X[obs_sel[,i], 
-                                   feature_sel[,i]],
-                                 y[obs_sel[,i]],
-                                 gain_fun = gain_fun,
-                                 node_min_size = node_min_size)
-      return(result)
-      }
-  close(pb)
-  stopCluster(cl) 
+  # cl = makeCluster(parallel::detectCores())
+  # registerDoSNOW(cl)
+  # pb = txtProgressBar(max = n_trees, style = 3)
+  # progress = function(n) setTxtProgressBar(pb, n)
+  # opts = list(progress = progress)
+  # 
+  # tree_output = foreach(i = 1:n_trees, 
+  #                 .options.snow = opts,
+  #                  .export = c("grow_rf_tree",
+  #                              "find_max_gain",
+  #                              "get_predictions",
+  #                              "grow_tree",
+  #                              "fill_tree_details",
+  #                              "fill_mu",
+  #                              "create_stump")) %dopar%
+  #   {
+  #     result = grow_rf_tree(X[obs_sel[,i], 
+  #                                  feature_sel[,i]],
+  #                                y[obs_sel[,i]],
+  #                                gain_fun = gain_fun,
+  #                                node_min_size = node_min_size)
+  #     return(result)
+  #     }
+  # close(pb)
+  # stopCluster(cl) 
 
-  # for(i in 1:n_trees) {
-  #   print(i)
-  #   tree_output[[i]] = grow_rf_tree(X[obs_sel[,i], feature_sel[,i]],
-  #                                   y[obs_sel[,i]],
-  #                                   gain_fun = gain_fun,
-  #                                   node_min_size = node_min_size)
-  # }
+  pb = utils::txtProgressBar(min = 0, max = n_trees,
+                             style = 3, width = 60, 
+                             title = 'Running VarSelRF...')
+  
+  for(i in 1:n_trees) {
+    utils::setTxtProgressBar(pb, i)
+    tree_output[[i]] = grow_rf_tree(X[obs_sel[,i], feature_sel[,i]],
+                                    y[obs_sel[,i]],
+                                    gain_fun = gain_fun,
+                                    node_min_size = node_min_size)
+  }
   
   # Now go through for each tree and correct the chosen variables
   for(i in 1:n_trees) {
@@ -185,9 +189,9 @@ find_max_gain = function(XX,
     curr_X = XX[tree$node_indices == node_to_grow,j]
     # Remember the only X values you can split on are those in that terminal node
     #unique_X = sort(unique(curr_X))
-    unique_X = sort(unique(quantile(curr_X,
-                        probs = seq(0, 1, length = 22)[-c(1,12)])))
-    #unique_X = sort(sample(sort(curr_X)[-1], size = 10))
+    # unique_X = sort(unique(quantile(curr_X,
+    #                     probs = seq(0, 1, length = 22)[-c(1,12)])))
+    unique_X = sort(sample(sort(curr_X)[-1], size = 10))
 
     # If there's only one X value stop right now
     if(length(unique_X) == 1) {
